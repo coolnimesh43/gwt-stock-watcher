@@ -161,3 +161,5 @@ localhost.cert
 localhost.key
 ontargetapp.conf
 package-lock.json
+
+war/
