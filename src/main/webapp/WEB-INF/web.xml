@@ -11,9 +11,28 @@
     <servlet-class>org.coolnimesh.stock.server.GreetingServiceImpl</servlet-class>
   </servlet>
   
+  <servlet>
+  	<servlet-name>stockPriceServlet</servlet-name>
+  	<servlet-class>org.coolnimesh.stock.server.StockPriceServiceImpl</servlet-class>
+  </servlet>
+  <servlet>
+  	<servlet-name>jsonStockData</servlet-name>
+  	<servlet-class>org.coolnimesh.stock.server.JsonStockData</servlet-class>
+  </servlet>
+  
   <servlet-mapping>
     <servlet-name>greetServlet</servlet-name>
     <url-pattern>/stockwatcher/greet</url-pattern>
+  </servlet-mapping>
+  
+<!--   <servlet-mapping> -->
+<!--   	<servlet-name>stockPriceServlet</servlet-name> -->
+<!--   	<url-pattern>/stockwatcher/stockPrices</url-pattern> -->
+<!--   </servlet-mapping> -->
+  
+  <servlet-mapping>
+  	<servlet-name>jsonStockData</servlet-name>
+  	<url-pattern>/stockwatcher/stockPrices</url-pattern>
   </servlet-mapping>
   
   <!-- Default page to serve -->

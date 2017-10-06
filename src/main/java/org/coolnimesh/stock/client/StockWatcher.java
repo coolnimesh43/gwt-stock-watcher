@@ -2,13 +2,22 @@ package org.coolnimesh.stock.client;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 
 import com.google.gwt.core.client.EntryPoint;
+import com.google.gwt.core.client.JsArray;
+import com.google.gwt.core.client.JsonUtils;
+import com.google.gwt.core.shared.GWT;
 import com.google.gwt.event.dom.client.KeyCodes;
+import com.google.gwt.http.client.Request;
+import com.google.gwt.http.client.RequestBuilder;
+import com.google.gwt.http.client.RequestCallback;
+import com.google.gwt.http.client.RequestException;
+import com.google.gwt.http.client.Response;
+import com.google.gwt.http.client.URL;
 import com.google.gwt.i18n.client.DateTimeFormat;
 import com.google.gwt.i18n.client.NumberFormat;
-import com.google.gwt.user.client.Random;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Button;
@@ -30,6 +39,7 @@ public class StockWatcher implements EntryPoint {
     private TextBox newStockTextBox = new TextBox();
     private Button addStockButton = new Button("Add");
     private Label lastUpdatedLabel = new Label();
+    public Label errorMessageLabel = new Label();
 
     private List<String> stocks = new ArrayList<>();
     private int REFRESH_INTERVAL = 5000;
@@ -38,6 +48,9 @@ public class StockWatcher implements EntryPoint {
     private static final double MAX_PRICE_CHANGE = 0.02;
     private static final NumberFormat CHANGE_FORMAT = NumberFormat.getFormat("+#,##0.00;-#,##0.00");
     private static final DateTimeFormat DATE_FORMAT = DateTimeFormat.getFormat(DateTimeFormat.PredefinedFormat.DATE_TIME_MEDIUM);
+    private static final String JSON_DATA_URL = com.google.gwt.core.client.GWT.getModuleBaseURL() + "stockPrices?q=nimesh+mishra";
+
+    private StockPriceServiceAsync stockPriceServiceAsync = GWT.create(StockPriceService.class);
 
     /**
      * This is the entry point method.
@@ -52,6 +65,11 @@ public class StockWatcher implements EntryPoint {
         addPanel.addStyleName("addPanel");
 
         // assemble main panel
+
+        errorMessageLabel.addStyleName("errorMessage");
+        errorMessageLabel.setVisible(false);
+
+        mainPanel.add(errorMessageLabel);
         mainPanel.add(stocksFlexTable);
         mainPanel.add(addPanel);
         mainPanel.add(lastUpdatedLabel);
@@ -83,17 +101,57 @@ public class StockWatcher implements EntryPoint {
     }
 
     private void refreshWatchList() {
-        StockPrice[] prices = new StockPrice[stocks.size()];
-        for (int i = 0; i < stocks.size(); i++) {
-            double price = Random.nextDouble() * MAX_PRICE;
-            double change = price * MAX_PRICE_CHANGE * (Random.nextDouble() * 2.0 - 1.0);
-            prices[i] = new StockPrice(stocks.get(i), price, change);
+        if (stocks == null || stocks.size() == 0) {
+            return;
         }
-        updateStockTable(prices);
+        String url = JSON_DATA_URL;
+        Iterator<String> iterator = stocks.iterator();
+        while (iterator.hasNext()) {
+            url += iterator.next();
+            if (iterator.hasNext()) {
+                url += "+";
+            }
+        }
+
+        url = URL.encode(url);
+        RequestBuilder builder = new RequestBuilder(RequestBuilder.GET, url);
+        try {
+            Request request = builder.sendRequest(null, new RequestCallback() {
+
+                @Override
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == 200) {
+                        updateStockTable(JsonUtils.<JsArray<StockData>> safeEval(response.getText()));
+                    } else {
+                        displayError("Couldn't retrieve JSON (" + response.getStatusText() + ")");
+                    }
+                }
+
+                @Override
+                public void onError(Request request, Throwable exception) {
+                    displayError("Couldn't retrieve JSON ");
+
+                }
+            });
+        } catch (RequestException e) {
+            displayError("Exception while fetching stock data from the server.");
+            e.printStackTrace();
+        }
+        // RPC style call.
+        // if (stockPriceServiceAsync == null) {
+        // stockPriceServiceAsync = GWT.create(StockPriceService.class);
+        // }
+        // StockPriceCallBack stockPriceCallBack = new StockPriceCallBack(this);
+        // stockPriceServiceAsync.getPrices(stocks.toArray(new String[0]), stockPriceCallBack);
     }
 
-    private void updateStock(StockPrice price) {
-        if (!stocks.contains(price.getSymbol())) {
+    private void displayError(String error) {
+        errorMessageLabel.setText("Error: " + error);
+        errorMessageLabel.setVisible(true);
+    }
+
+    private void updateStock(StockData price) {
+        if (price == null || price.getSymbol() == null || !stocks.contains(price.getSymbol())) {
             return;
         }
         int row = stocks.indexOf(price.getSymbol()) + 1;
@@ -115,13 +173,16 @@ public class StockWatcher implements EntryPoint {
         // stocksFlexTable.setText(row, 2, changeText + " (" + changePercentText + "%)");
     }
 
-    private void updateStockTable(StockPrice[] stockPrices) {
-        if (stockPrices != null && stockPrices.length > 0) {
-            for (int i = 0; i < stockPrices.length; i++) {
-                updateStock(stockPrices[i]);
+    public void updateStockTable(JsArray<StockData> stockPrices) {
+        if (stockPrices != null && stockPrices.length() > 0) {
+            for (int i = 0; i < stockPrices.length(); i++) {
+                if (stockPrices.get(i) != null) {
+                    updateStock(stockPrices.get(i));
+                }
             }
 
             lastUpdatedLabel.setText("Last Updated on : " + DATE_FORMAT.format(new Date()));
+            errorMessageLabel.setVisible(false);
         }
     }
 
